@@ -115,6 +115,9 @@ func main() {
       w.Write([]byte("<html><head><title>Proxmox exporter</title></head><body><h1>Proxmox exporter</h1><a href=\"/metrics\">Metrics</a></bidy></html>"))
    }))
 
-	_ = http.ListenAndServe(*listenAddress, mux)
+	err = http.ListenAndServe(*listenAddress, mux)
+   if err != nil {
+      panic(err)
+   }
 
 }
