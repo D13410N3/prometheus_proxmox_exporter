@@ -1,6 +1,6 @@
 # proxmox_exporter
 
-## The simpliest exporter for Proxmox
+## The simpliest Prometheus exporter for Proxmox
 
 ### Available metrics:
 * proxmox_vm_status
@@ -17,7 +17,6 @@
 * proxmox_vm_netin
 * proxmox_vm_maxmem
 * proxmox_vm_uptime
-* proxmox_vm_disk
 * proxmox_vm_disk
 
 ### Installation:
