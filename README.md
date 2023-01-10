@@ -27,7 +27,7 @@
 Use `config.sample.yaml` as example
 
 ### Running:
-./proxmox_exporter
+`./proxmox_exporter`
 
 Available flags:
 * `-listen.address` - address to bind (default: `:9914`)
