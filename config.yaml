@@ -1,0 +1,5 @@
+proxmox_ip: "192.168.10.1"
+proxmox_port: "8006"
+proxmox_username: "root@pam!monitoring"
+proxmox_token: "c5080981-f2f0-4a26-a918-5d1b41271f4c"
+proxmox_node: "proxmox"

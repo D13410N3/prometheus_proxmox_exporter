@@ -25,9 +25,9 @@ func isNumeric(s interface{}) bool {
 }
 
 func init() {
-	configFile = flag.String("config.file", "./config.yml", "a string")
-	listenAddress = flag.String("listen.address", ":9914", "a string")
-   logLevel = flag.String("log.level", "none", "a string")
+	configFile = flag.String("config.file", "./config.yaml", "Path to a configuration file")
+	listenAddress = flag.String("listen.address", "127.0.0.1:9914", "Address to bind")
+   logLevel = flag.String("log.level", "none", "Logging level")
 }
 
 func main() {
