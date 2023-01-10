@@ -21,7 +21,7 @@
 * proxmox_vm_disk
 
 ### Installation:
-`go build`
+Download [https://github.com/D13410N3/proxmox_exporter/releases/tag/release](binary) or clone this repository & build it by yourself with `go build`
 
 ### Configuration:
 Use `config.sample.yaml` as example
