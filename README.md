@@ -32,3 +32,9 @@ Available flags:
 * `-listen.address` - address to bind (default: `:9914`)
 * `-config.file` - path to a configuration file (default: `./config.yaml`)
 * `-log.level` - logging level (default: `none`)
+
+
+
+### TODO (contact me if you need it):
+* Support multiple "datacenters"
+* Support CT
