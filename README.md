@@ -33,7 +33,7 @@ Available flags:
 * `-config.file` - path to a configuration file (default: `./config.yaml`)
 * `-log.level` - logging level (default: `none`)
 
-
+You can also use `proxmox_exporter.service` as ready unit-file if you're using systemd
 
 ### TODO (contact me if you need it):
 * Support multiple "datacenters"
