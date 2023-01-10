@@ -8,15 +8,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
-   "time"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
 
 var (
-	configFile *string
+	configFile    *string
 	listenAddress *string
-	logLevel *string
+	logLevel      *string
 )
 
 func isNumeric(s interface{}) bool {
@@ -27,7 +27,7 @@ func isNumeric(s interface{}) bool {
 func init() {
 	configFile = flag.String("config.file", "./config.yaml", "Path to a configuration file")
 	listenAddress = flag.String("listen.address", "127.0.0.1:9914", "Address to bind")
-   logLevel = flag.String("log.level", "none", "Logging level")
+	logLevel = flag.String("log.level", "none", "Logging level")
 }
 
 func main() {
@@ -54,26 +54,26 @@ func main() {
 
 	mux := http.NewServeMux()
 
-   fmt.Printf("Server is handling requests on address \"%v\"\n", *listenAddress)
+	fmt.Printf("Server is handling requests on address \"%v\"\n", *listenAddress)
 
 	mux.HandleFunc("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-      dt := time.Now().Format(time.RFC3339)
-      if *logLevel == "debug" {
-         fmt.Printf("%v Handling metrics-request from %v\n", dt, r.RemoteAddr)
-      }
+		dt := time.Now().Format(time.RFC3339)
+		if *logLevel == "debug" {
+			fmt.Printf("%v Handling metrics-request from %v\n", dt, r.RemoteAddr)
+		}
 		res, err := client.Do(req)
-      if err != nil {
-         fmt.Println(err)
-      }
+		if err != nil {
+			fmt.Println(err)
+		}
 
 		m := map[string][]map[string]interface{}{}
 		dec := json.NewDecoder(res.Body)
 		dec.UseNumber()
 
 		err = dec.Decode(&m)
-      if err != nil {
-         fmt.Println(err)
-      }
+		if err != nil {
+			fmt.Println(err)
+		}
 
 		var output string
 		var str string
@@ -110,14 +110,14 @@ func main() {
 		w.Write([]byte(output))
 	}))
 
-   mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-type", "text/html")
-      w.Write([]byte("<html><head><title>Proxmox exporter</title></head><body><h1>Proxmox exporter</h1><a href=\"/metrics\">Metrics</a></bidy></html>"))
-   }))
+	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-type", "text/html")
+		w.Write([]byte("<html><head><title>Proxmox exporter</title></head><body><h1>Proxmox exporter</h1><a href=\"/metrics\">Metrics</a></bidy></html>"))
+	}))
 
 	err = http.ListenAndServe(*listenAddress, mux)
-   if err != nil {
-      panic(err)
-   }
+	if err != nil {
+		panic(err)
+	}
 
 }
