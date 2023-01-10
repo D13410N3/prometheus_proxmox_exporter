@@ -16,7 +16,7 @@ import (
 var (
 	configFile *string
 	listenAddress *string
-   logLevel *string
+	logLevel *string
 )
 
 func isNumeric(s interface{}) bool {
@@ -46,10 +46,10 @@ func main() {
 	err = yaml.Unmarshal(yamlFile, &y)
 
 	token_string := "PVEAPIToken=" + y["proxmox_username"] + "=" + y["proxmox_token"]
-	proxmox_api_url := "https://" + y["proxmox_ip"] + ":" + y["proxmox_port"] + "/api2/json/nodes/" + y["proxmox_node"] + "/qemu"
+	proxmox_api_url_nodes := "https://" + y["proxmox_ip"] + ":" + y["proxmox_port"] + "/api2/json/nodes/" + y["proxmox_node"] + "/qemu"
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", proxmox_api_url, nil)
+	req, _ := http.NewRequest("GET", proxmox_api_url_nodes, nil)
 	req.Header.Add("Authorization", token_string)
 
 	mux := http.NewServeMux()
