@@ -1,6 +1,4 @@
-# proxmox_exporter
-
-## The simpliest Prometheus exporter for Proxmox
+# The simplest Prometheus exporter for Proxmox
 
 ### Available metrics:
 * proxmox_vm_status
