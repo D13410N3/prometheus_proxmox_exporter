@@ -30,7 +30,7 @@ Use `config.sample.yaml` as example
 
 Available flags:
 * `-listen.address` - address to bind (default: `:9914`)
-* `-config.file` - path to a configuration file (default: `./config.yaml`)
+* `-config.file` - path to a configuration file (default: `/etc/proxmox_exporter.yaml`)
 * `-log.level` - logging level (default: `none`)
 
 You can also use `proxmox_exporter.service` as ready unit-file if you're using systemd

@@ -25,7 +25,7 @@ func isNumeric(s interface{}) bool {
 }
 
 func init() {
-	configFile = flag.String("config.file", "./config.yaml", "Path to a configuration file")
+	configFile = flag.String("config.file", "/etc/proxmox_exporter.yaml", "Path to a configuration file")
 	listenAddress = flag.String("listen.address", "127.0.0.1:9914", "Address to bind")
 	logLevel = flag.String("log.level", "none", "Logging level")
 }
