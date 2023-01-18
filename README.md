@@ -18,7 +18,9 @@
 * proxmox_vm_disk
 
 ### Installation:
-Download [preferred binary](https://github.com/D13410N3/proxmox_exporter/releases/tag/release) or clone this repository & build it by yourself with `go build`
+1. True choice: clone this repo and build by yourself using `go build`
+2. Lazy choice: Download [preferred binary](https://github.com/D13410N3/proxmox_exporter/releases/tag/release)
+3. The laziest choice (for desperate): `echo "deb [trusted=yes] https://repo.azq2.ru/ /" > /etc/apt/sources.list.d/repo.azq2.ru.list && apt update && apt-get -y install proxmox_exporter`
 
 ### Configuration:
 Use `config.sample.yaml` as example
