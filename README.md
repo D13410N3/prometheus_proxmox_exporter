@@ -18,7 +18,7 @@
 * proxmox_vm_disk
 
 ### Installation:
-Download [preferred binary](https://github.com/D13410N3/proxmox_exporter/releases/tag/release) or clone this repository & build it by yourself with `go build`
+`go build`
 
 ### Configuration:
 Use `config.sample.yaml` as example
@@ -30,8 +30,6 @@ Available flags:
 * `-listen.address` - address to bind (default: `:9914`)
 * `-config.file` - path to a configuration file (default: `/etc/proxmox_exporter.yaml`)
 * `-log.level` - logging level (default: `none`)
-
-You can also use `proxmox_exporter.service` as ready unit-file if you're using systemd
 
 ### TODO (contact me if you need it):
 * Support multiple "datacenters"

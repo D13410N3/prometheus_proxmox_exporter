@@ -8,15 +8,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
-	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v2"
 )
 
 var (
-	configFile    *string
-	listenAddress *string
-	logLevel      *string
+	configFile    = flag.String("config.file", "/etc/proxmox_exporter.yaml", "Path to a configuration file")
+	listenAddress = flag.String("listen.address", "127.0.0.1:9914", "Address to bind")
+	logLevel      = flag.String("log.level", "none", "Logging level")
 )
 
 func isNumeric(s interface{}) bool {
@@ -24,10 +25,54 @@ func isNumeric(s interface{}) bool {
 	return ok
 }
 
-func init() {
-	configFile = flag.String("config.file", "/etc/proxmox_exporter.yaml", "Path to a configuration file")
-	listenAddress = flag.String("listen.address", "127.0.0.1:9914", "Address to bind")
-	logLevel = flag.String("log.level", "none", "Logging level")
+type proxmoxCollector struct {
+	config map[string]string
+}
+
+func (collector *proxmoxCollector) Describe(ch chan<- *prometheus.Desc) {
+	// Intentionally empty.
+}
+
+func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
+	token_string := "PVEAPIToken=" + collector.config["proxmox_username"] + "=" + collector.config["proxmox_token"]
+	proxmox_api_url_nodes := "https://" + collector.config["proxmox_ip"] + ":" + collector.config["proxmox_port"] + "/api2/json/nodes/" + collector.config["proxmox_node"] + "/qemu"
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", proxmox_api_url_nodes, nil)
+	req.Header.Add("Authorization", token_string)
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	m := map[string][]map[string]interface{}{}
+	dec := json.NewDecoder(res.Body)
+	dec.UseNumber()
+	err = dec.Decode(&m)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+    for _, v := range m["data"] {
+        vmid := fmt.Sprintf("%v", v["vmid"])
+        vmname := fmt.Sprintf("%v", v["name"])
+        for key, value := range v {
+            if isNumeric(value) {
+                metricName := fmt.Sprintf("proxmox_vm_%s", key)
+                metricValue, _ := value.(json.Number).Float64()
+                ch <- prometheus.MustNewConstMetric(
+                    prometheus.NewDesc(metricName, "Proxmox metric", []string{"vmid", "vmname"}, nil),
+                    prometheus.GaugeValue,
+                    metricValue,
+                    vmid,
+                    vmname,
+                )
+            }
+        }
+    }
 }
 
 func main() {
@@ -37,7 +82,6 @@ func main() {
 
 	filename, _ := filepath.Abs(*configFile)
 	yamlFile, err := ioutil.ReadFile(filename)
-
 	if err != nil {
 		panic(err)
 	}
@@ -45,79 +89,13 @@ func main() {
 	y := map[string]string{}
 	err = yaml.Unmarshal(yamlFile, &y)
 
-	token_string := "PVEAPIToken=" + y["proxmox_username"] + "=" + y["proxmox_token"]
-	proxmox_api_url_nodes := "https://" + y["proxmox_ip"] + ":" + y["proxmox_port"] + "/api2/json/nodes/" + y["proxmox_node"] + "/qemu"
+	prometheus.MustRegister(&proxmoxCollector{config: y})
 
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", proxmox_api_url_nodes, nil)
-	req.Header.Add("Authorization", token_string)
-
-	mux := http.NewServeMux()
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<html><head><title>Proxmox Exporter</title></head><body><h1>Proxmox Exporter</h1><a href=\"/metrics\">Metrics</a></body></html>"))
+	})
 
 	fmt.Printf("Server is handling requests on address \"%v\"\n", *listenAddress)
-
-	mux.HandleFunc("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		dt := time.Now().Format(time.RFC3339)
-		if *logLevel == "debug" {
-			fmt.Printf("%v Handling metrics-request from %v\n", dt, r.RemoteAddr)
-		}
-		res, err := client.Do(req)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		m := map[string][]map[string]interface{}{}
-		dec := json.NewDecoder(res.Body)
-		dec.UseNumber()
-
-		err = dec.Decode(&m)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		var output string
-		var str string
-		var str_status string
-
-		for _, v := range m["data"] {
-			vmid := v["vmid"]
-			vmname := v["name"]
-			var vmstatus string
-
-			output += fmt.Sprintf("\n# %v: %v\n", vmid, vmname)
-
-			if v["status"] == "running" {
-				vmstatus = "1"
-			} else {
-				vmstatus = "0"
-			}
-
-			str_status = fmt.Sprintf("proxmox_vm_status{vmid=\"%v\", vmname=\"%v\"} %v\n", vmid, vmname, vmstatus)
-			output += str_status
-
-			for key, value := range v {
-
-				if isNumeric(value) {
-					str = fmt.Sprintf("proxmox_vm_%v{vmid=\"%v\", vmname=\"%v\"} %v\n", key, vmid, vmname, value)
-				} else if key != "status" {
-					str = fmt.Sprintf("proxmox_vm_%v{vmid=\"%v\", vmname=\"%v\", value=\"%v\"} 1\n", key, vmid, vmname, value)
-				}
-				output += str
-			}
-		}
-
-		w.Header().Set("Content-type", "text/plain")
-		w.Write([]byte(output))
-	}))
-
-	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-type", "text/html")
-		w.Write([]byte("<html><head><title>Proxmox exporter</title></head><body><h1>Proxmox exporter</h1><a href=\"/metrics\">Metrics</a></bidy></html>"))
-	}))
-
-	err = http.ListenAndServe(*listenAddress, mux)
-	if err != nil {
-		panic(err)
-	}
-
+	http.ListenAndServe(*listenAddress, nil)
 }
