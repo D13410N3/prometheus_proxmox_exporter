@@ -1,4 +1,0 @@
-proxmox_address: "127.0.0.1"
-proxmox_port: "8006"
-proxmox_username: "root@pam!username"
-proxmox_token: "12345678-90ab-cdef-1234-567890abcdef"
