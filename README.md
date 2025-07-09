@@ -1,35 +1,63 @@
 # The simplest Prometheus exporter for Proxmox
 
-### Available metrics
-## VM Metrics
-  * `proxmox_vm_status`
-  * `proxmox_vm_diskwrite`
-  * `proxmox_vm_vmid`
-  * `proxmox_vm_pid`
-  * `proxmox_vm_cpus`
-  * `proxmox_vm_cpu`
-  * `proxmox_vm_netout`
-  * `proxmox_vm_maxdisk`
-  * `proxmox_vm_name`
-  * `proxmox_vm_diskread`
-  * `proxmox_vm_mem`
-  * `proxmox_vm_netin`
-  * `proxmox_vm_maxmem`
-  * `proxmox_vm_uptime`
-  * `proxmox_vm_disk`
+## Available Metrics
 
-## Node Metrics
-  * `proxmox_node_cpu_usage`
-  * `proxmox_node_memory_total_bytes`
-  * `proxmox_node_memory_free_bytes`
+### VM Metrics
 
-## Storage Metrics
-  * `proxmox_storage_info` - Information about Proxmox storages (labels: `storage`, `type`, `shared`)
-  * `proxmox_storage_type_count` - Count of storages by type (labels: `type`)
+| Metric | Description | Type | Labels |
+|--------|-------------|------|--------|
+| `proxmox_vm_status` | VM running status (1=running, 0=stopped) | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_diskwrite` | Disk write throughput in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_diskread` | Disk read throughput in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_vmid` | VM ID number | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_pid` | Process ID of the VM | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_cpus` | Number of virtual CPUs allocated to the VM | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_cpu` | CPU usage percentage | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_netout` | Network output in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_netin` | Network input in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_maxdisk` | Maximum disk size in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_disk` | Current disk usage in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_mem` | Current memory usage in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_maxmem` | Maximum memory allocated in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_uptime` | VM uptime in seconds | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_balloon` | Ballooned memory (if enabled) in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_running` | Whether the VM is currently running (1=yes, 0=no) | Gauge | `vmid`, `vmname`, `proxmox_node` |
 
-## Cluster Metrics
-  * `proxmox_cluster_*` - Various cluster metrics based on the Proxmox API response
+### Node Metrics
 
+| Metric | Description | Type | Labels |
+|--------|-------------|------|--------|
+| `proxmox_node_cpu_usage` | CPU usage percentage | Gauge | `node` |
+| `proxmox_node_memory_total_bytes` | Total memory in bytes | Gauge | `node` |
+| `proxmox_node_memory_free_bytes` | Free memory in bytes | Gauge | `node` |
+| `proxmox_node_memory_used_bytes` | Used memory in bytes | Gauge | `node` |
+| `proxmox_node_cpu_model_info` | CPU model information | Gauge | `node`, `model` |
+| `proxmox_node_cpu_cores` | Number of CPU cores in the node | Gauge | `node` |
+| `proxmox_node_kernel_info` | Kernel version information | Gauge | `node`, `kernel` |
+| `proxmox_node_pve_version_info` | Proxmox Virtual Environment version | Gauge | `node`, `version` |
+| `proxmox_node_load1` | Node load average for 1 minute | Gauge | `node` |
+| `proxmox_node_load5` | Node load average for 5 minutes | Gauge | `node` |
+| `proxmox_node_load15` | Node load average for 15 minutes | Gauge | `node` |
+| `proxmox_node_uptime` | Node uptime in seconds | Gauge | `node` |
+| `proxmox_node_swap_total_bytes` | Total swap space in bytes | Gauge | `node` |
+| `proxmox_node_swap_free_bytes` | Free swap space in bytes | Gauge | `node` |
+
+### Storage Metrics
+
+| Metric | Description | Type | Labels |
+|--------|-------------|------|--------|
+| `proxmox_storage_info` | Information about Proxmox storages | Gauge | `storage`, `type`, `shared`, `node` |
+| `proxmox_storage_type_count` | Count of storages by type | Gauge | `type` |
+| `proxmox_storage_total` | Total storage space in bytes | Gauge | `storage`, `node` |
+| `proxmox_storage_used` | Used storage space in bytes | Gauge | `storage`, `node` |
+| `proxmox_storage_avail` | Available storage space in bytes | Gauge | `storage`, `node` |
+
+### Cluster Metrics
+
+| Metric | Description | Type | Labels |
+|--------|-------------|------|--------|
+| `proxmox_cluster_quorate` | Cluster quorum status (1=quorate, 0=not quorate) | Gauge | `node_id`, `node_name` |
+| `proxmox_cluster_nodes` | Number of nodes in the cluster | Gauge | `node_id`, `node_name` |
 
 ### Installation:
 

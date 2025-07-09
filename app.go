@@ -261,6 +261,87 @@ func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
 					node.Name,
 				)
 			}
+
+			if cpuModel, ok := data["cpuinfo"].(map[string]interface{}); ok {
+				if model, ok := cpuModel["model"].(string); ok {
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_node_cpu_model_info", "Proxmox node CPU model information",
+							[]string{"node", "model"}, nil),
+						prometheus.GaugeValue,
+						1,
+						node.Name,
+						model,
+					)
+				}
+
+				if cores, ok := cpuModel["cores"].(json.Number); ok {
+					coresValue, _ := cores.Float64()
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_node_cpu_cores", "Number of CPU cores in the node",
+							[]string{"node"}, nil),
+						prometheus.GaugeValue,
+						coresValue,
+						node.Name,
+					)
+				}
+			}
+
+			if kernel, ok := data["kernel"].(string); ok {
+				ch <- prometheus.MustNewConstMetric(
+					prometheus.NewDesc("proxmox_node_kernel_info", "Proxmox node kernel version",
+						[]string{"node", "kernel"}, nil),
+					prometheus.GaugeValue,
+					1,
+					node.Name,
+					kernel,
+				)
+			}
+
+			if pveVersion, ok := data["pveversion"].(string); ok {
+				ch <- prometheus.MustNewConstMetric(
+					prometheus.NewDesc("proxmox_node_pve_version_info", "Proxmox Virtual Environment version",
+						[]string{"node", "version"}, nil),
+					prometheus.GaugeValue,
+					1,
+					node.Name,
+					pveVersion,
+				)
+			}
+
+			if loadavg, ok := data["loadavg"].([]interface{}); ok && len(loadavg) >= 3 {
+				if load1, ok := loadavg[0].(json.Number); ok {
+					load1Value, _ := load1.Float64()
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_node_load1", "Node load average for 1 minute",
+							[]string{"node"}, nil),
+						prometheus.GaugeValue,
+						load1Value,
+						node.Name,
+					)
+				}
+
+				if load5, ok := loadavg[1].(json.Number); ok {
+					load5Value, _ := load5.Float64()
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_node_load5", "Node load average for 5 minutes",
+							[]string{"node"}, nil),
+						prometheus.GaugeValue,
+						load5Value,
+						node.Name,
+					)
+				}
+
+				if load15, ok := loadavg[2].(json.Number); ok {
+					load15Value, _ := load15.Float64()
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_node_load15", "Node load average for 15 minutes",
+							[]string{"node"}, nil),
+						prometheus.GaugeValue,
+						load15Value,
+						node.Name,
+					)
+				}
+			}
 		}
 
 		// Collect VM metrics
