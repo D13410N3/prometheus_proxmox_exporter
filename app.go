@@ -128,8 +128,8 @@ func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
 					metricValue, _ := value.(json.Number).Float64()
 
 					// Create labels map to uniquely identify the metric
-					labels := []string{"node_id", "node_name"}
-					labelValues := []string{node.ID, node.Name}
+					labels := []string{"node"}
+					labelValues := []string{node.Name}
 
 					ch <- prometheus.MustNewConstMetric(
 						prometheus.NewDesc(metricName, "Proxmox cluster metric", labels, nil),
@@ -360,7 +360,7 @@ func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
 								metricName := fmt.Sprintf("proxmox_vm_%s", key)
 								metricValue, _ := value.(json.Number).Float64()
 								ch <- prometheus.MustNewConstMetric(
-									prometheus.NewDesc(metricName, "Proxmox VM metric", []string{"vmid", "vmname", "proxmox_node"}, nil),
+									prometheus.NewDesc(metricName, "Proxmox VM metric", []string{"vmid", "vmname", "node"}, nil),
 									prometheus.GaugeValue,
 									metricValue,
 									vmid,
