@@ -112,7 +112,9 @@ func (collector *proxmoxCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
 
 	// Collect cluster metrics
 	collector.nodesMutex.RLock()
@@ -220,6 +222,30 @@ func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, node := range allNodes {
 		// Collect node metrics
 		nodeStatus := collector.fetchJSON(client, "/nodes/"+node.Name+"/status")
+
+		// Add proxmox_node_status metric - 1 if node is reachable, 0 if not
+		nodeStatusValue := float64(0)
+		if nodeStatus != nil {
+			if data, ok := nodeStatus["data"].(map[string]interface{}); ok {
+				// Check if the node is online by looking for the "status" field
+				if status, exists := data["status"]; exists {
+					if statusStr := fmt.Sprintf("%v", status); statusStr == "online" {
+						nodeStatusValue = 1
+					}
+				} else {
+					// If no explicit status field but we got data, assume online
+					nodeStatusValue = 1
+				}
+			}
+		}
+
+		ch <- prometheus.MustNewConstMetric(
+			prometheus.NewDesc("proxmox_node_status", "Proxmox node status (1=online, 0=offline)", []string{"node"}, nil),
+			prometheus.GaugeValue,
+			nodeStatusValue,
+			node.Name,
+		)
+
 		if data, ok := nodeStatus["data"].(map[string]interface{}); ok {
 			// Collect all numeric node metrics
 			for key, value := range data {
