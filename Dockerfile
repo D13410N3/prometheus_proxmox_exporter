@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM golang:1.25.1 AS builder
+FROM golang:1.25.1-alpine AS builder
 
 WORKDIR /app
 COPY . .
@@ -23,4 +23,4 @@ ENV PROXMOX_ADDRESS="127.0.0.1" \
     LISTEN_ADDRESS="0.0.0.0:9914" \
     LOG_LEVEL="none"
 
-ENTRYPOINT ["./proxmox-exporter"]
+ENTRYPOINT ["/app/proxmox-exporter"]
