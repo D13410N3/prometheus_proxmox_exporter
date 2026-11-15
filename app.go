@@ -7,11 +7,21 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+const (
+	// vmTagCacheTTL is how long VM tags are reused between scrapes. Tags change
+	// rarely and one config request per VM per scrape would double the number
+	// of Proxmox API calls.
+	vmTagCacheTTL = 5 * time.Minute
+	// vmTagFetchWorkers bounds the parallel config requests per node.
+	vmTagFetchWorkers = 4
 )
 
 // Configuration holds all the application configuration
@@ -40,6 +50,60 @@ type ProxmoxNode struct {
 	ID   string
 }
 
+// vmTagEntry is one cached VM tag list.
+type vmTagEntry struct {
+	tags    string
+	fetched time.Time
+}
+
+// vmTagCache keeps VM tags between scrapes, keyed by node and vmid.
+type vmTagCache struct {
+	ttl     time.Duration
+	mutex   sync.Mutex
+	entries map[string]vmTagEntry
+}
+
+// newVMTagCache creates an empty tag cache
+func newVMTagCache(ttl time.Duration) *vmTagCache {
+	return &vmTagCache{
+		ttl:     ttl,
+		entries: make(map[string]vmTagEntry),
+	}
+}
+
+// get returns a cached tag list if it is still fresh
+func (cache *vmTagCache) get(key string, now time.Time) (string, bool) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	entry, ok := cache.entries[key]
+	if !ok || now.Sub(entry.fetched) > cache.ttl {
+		return "", false
+	}
+	return entry.tags, true
+}
+
+// set stores a tag list fetched at the given time
+func (cache *vmTagCache) set(key, tags string, now time.Time) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	cache.entries[key] = vmTagEntry{tags: tags, fetched: now}
+}
+
+// prune drops entries that have not been refreshed for a long time, so the
+// cache does not grow without bound when VMs are removed.
+func (cache *vmTagCache) prune(now time.Time) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	for key, entry := range cache.entries {
+		if now.Sub(entry.fetched) > 4*cache.ttl {
+			delete(cache.entries, key)
+		}
+	}
+}
+
 // proxmoxCollector implements the prometheus.Collector interface
 type proxmoxCollector struct {
 	baseURL           string
@@ -47,6 +111,7 @@ type proxmoxCollector struct {
 	nodes             []ProxmoxNode
 	nodesMutex        sync.RWMutex
 	discoveryInterval time.Duration
+	vmTags            *vmTagCache
 }
 
 // newProxmoxCollector creates a new proxmoxCollector
@@ -56,6 +121,7 @@ func newProxmoxCollector(baseURL, token string, discoveryInterval time.Duration)
 		token:             token,
 		nodes:             []ProxmoxNode{},
 		discoveryInterval: discoveryInterval,
+		vmTags:            newVMTagCache(vmTagCacheTTL),
 	}
 
 	// Start node discovery in background
@@ -373,33 +439,156 @@ func (collector *proxmoxCollector) Collect(ch chan<- prometheus.Metric) {
 		// Collect VM metrics
 		vmsResponse := collector.fetchJSON(client, "/nodes/"+node.Name+"/qemu")
 		if vms, ok := vmsResponse["data"].([]interface{}); ok {
+			type vmRef struct {
+				vmid string
+				name string
+			}
+
+			vmRefs := make([]vmRef, 0, len(vms))
+			vmids := make([]string, 0, len(vms))
 			for _, vm := range vms {
 				if vmMap, ok := vm.(map[string]interface{}); ok {
-					vmid := fmt.Sprintf("%v", vmMap["vmid"])
-					vmname := fmt.Sprintf("%v", vmMap["name"])
+					vmRef := vmRef{
+						vmid: fmt.Sprintf("%v", vmMap["vmid"]),
+						name: fmt.Sprintf("%v", vmMap["name"]),
+					}
+					vmRefs = append(vmRefs, vmRef)
+					vmids = append(vmids, vmRef.vmid)
+				}
+			}
 
-					// Fetch VM status
-					vmStatus := collector.fetchJSON(client, "/nodes/"+node.Name+"/qemu/"+vmid+"/status/current")
-					if data, ok := vmStatus["data"].(map[string]interface{}); ok {
-						for key, value := range data {
-							if isNumeric(value) {
-								metricName := fmt.Sprintf("proxmox_vm_%s", key)
-								metricValue, _ := value.(json.Number).Float64()
-								ch <- prometheus.MustNewConstMetric(
-									prometheus.NewDesc(metricName, "Proxmox VM metric", []string{"vmid", "vmname", "node"}, nil),
-									prometheus.GaugeValue,
-									metricValue,
-									vmid,
-									vmname,
-									node.Name,
-								)
-							}
+			tagsByVMID := collector.resolveVMTags(client, node.Name, vmids)
+
+			for _, vmRef := range vmRefs {
+				// The tag metric is emitted for every VM, with an empty
+				// vm_tags label when the VM has no tags.
+				if tags, ok := tagsByVMID[vmRef.vmid]; ok {
+					ch <- prometheus.MustNewConstMetric(
+						prometheus.NewDesc("proxmox_vm_tags", "Proxmox VM tags as a comma separated list",
+							[]string{"vmid", "vmname", "node", "vm_tags"}, nil),
+						prometheus.GaugeValue,
+						1,
+						vmRef.vmid,
+						vmRef.name,
+						node.Name,
+						tags,
+					)
+				}
+
+				vmid := vmRef.vmid
+				vmname := vmRef.name
+
+				// Fetch VM status
+				vmStatus := collector.fetchJSON(client, "/nodes/"+node.Name+"/qemu/"+vmid+"/status/current")
+				if data, ok := vmStatus["data"].(map[string]interface{}); ok {
+					for key, value := range data {
+						if isNumeric(value) {
+							metricName := fmt.Sprintf("proxmox_vm_%s", key)
+							metricValue, _ := value.(json.Number).Float64()
+							ch <- prometheus.MustNewConstMetric(
+								prometheus.NewDesc(metricName, "Proxmox VM metric", []string{"vmid", "vmname", "node"}, nil),
+								prometheus.GaugeValue,
+								metricValue,
+								vmid,
+								vmname,
+								node.Name,
+							)
 						}
 					}
 				}
 			}
 		}
 	}
+}
+
+// resolveVMTags returns normalized tags for every requested VM. Fresh cached
+// values are reused; stale or unknown VMs are fetched with bounded parallelism.
+// VMs whose config request failed are absent from the result, so their previous
+// series stay in Prometheus instead of being replaced by an empty label.
+func (collector *proxmoxCollector) resolveVMTags(client *http.Client, node string, vmids []string) map[string]string {
+	now := time.Now()
+	tags := make(map[string]string, len(vmids))
+
+	pending := make([]string, 0, len(vmids))
+	for _, vmid := range vmids {
+		if cached, ok := collector.vmTags.get(node+"/"+vmid, now); ok {
+			tags[vmid] = cached
+			continue
+		}
+		pending = append(pending, vmid)
+	}
+
+	if len(pending) > 0 {
+		var (
+			mutex sync.Mutex
+			wg    sync.WaitGroup
+		)
+
+		semaphore := make(chan struct{}, vmTagFetchWorkers)
+		for _, vmid := range pending {
+			vmid := vmid
+
+			wg.Add(1)
+			semaphore <- struct{}{}
+			go func() {
+				defer wg.Done()
+				defer func() { <-semaphore }()
+
+				raw, ok := collector.fetchVMTags(client, node, vmid)
+				if !ok {
+					return
+				}
+				normalized := normalizeVMTags(raw)
+				collector.vmTags.set(node+"/"+vmid, normalized, now)
+
+				mutex.Lock()
+				tags[vmid] = normalized
+				mutex.Unlock()
+			}()
+		}
+		wg.Wait()
+	}
+
+	collector.vmTags.prune(now)
+	return tags
+}
+
+// fetchVMTags reads the VM config, which is the only Proxmox endpoint that
+// exposes tags. It returns the raw tag list and whether the request succeeded.
+func (collector *proxmoxCollector) fetchVMTags(client *http.Client, node, vmid string) (string, bool) {
+	response := collector.fetchJSON(client, "/nodes/"+node+"/qemu/"+vmid+"/config")
+	data, ok := response["data"].(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	raw, _ := data["tags"].(string)
+	return raw, true
+}
+
+// normalizeVMTags turns a Proxmox tag list into a comma separated list. Proxmox
+// returns tags separated by semicolons; commas are accepted too because some
+// endpoints use them. Duplicates and empty entries are dropped.
+func normalizeVMTags(raw string) string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ';' || r == ','
+	})
+
+	seen := make(map[string]struct{}, len(parts))
+	tags := make([]string, 0, len(parts))
+	for _, part := range parts {
+		tag := strings.TrimSpace(part)
+		if tag == "" {
+			continue
+		}
+		if _, ok := seen[tag]; ok {
+			continue
+		}
+		seen[tag] = struct{}{}
+		tags = append(tags, tag)
+	}
+
+	return strings.Join(tags, ",")
 }
 
 func (collector *proxmoxCollector) fetchJSON(client *http.Client, path string) map[string]interface{} {

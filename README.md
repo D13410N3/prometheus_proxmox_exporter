@@ -6,22 +6,28 @@
 
 | Metric | Description | Type | Labels |
 |--------|-------------|------|--------|
-| `proxmox_vm_status` | VM running status (1=running, 0=stopped) | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_diskwrite` | Disk write throughput in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_diskread` | Disk read throughput in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_vmid` | VM ID number | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_pid` | Process ID of the VM | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_cpus` | Number of virtual CPUs allocated to the VM | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_cpu` | CPU usage percentage | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_netout` | Network output in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_netin` | Network input in bytes per second | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_maxdisk` | Maximum disk size in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_disk` | Current disk usage in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_mem` | Current memory usage in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_maxmem` | Maximum memory allocated in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_uptime` | VM uptime in seconds | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_balloon` | Ballooned memory (if enabled) in bytes | Gauge | `vmid`, `vmname`, `proxmox_node` |
-| `proxmox_vm_running` | Whether the VM is currently running (1=yes, 0=no) | Gauge | `vmid`, `vmname`, `proxmox_node` |
+| `proxmox_vm_status` | VM running status (1=running, 0=stopped) | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_diskwrite` | Disk write throughput in bytes per second | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_diskread` | Disk read throughput in bytes per second | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_vmid` | VM ID number | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_pid` | Process ID of the VM | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_cpus` | Number of virtual CPUs allocated to the VM | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_cpu` | CPU usage percentage | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_netout` | Network output in bytes per second | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_netin` | Network input in bytes per second | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_maxdisk` | Maximum disk size in bytes | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_disk` | Current disk usage in bytes | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_mem` | Current memory usage in bytes | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_maxmem` | Maximum memory allocated in bytes | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_uptime` | VM uptime in seconds | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_balloon` | Ballooned memory (if enabled) in bytes | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_running` | Whether the VM is currently running (1=yes, 0=no) | Gauge | `vmid`, `vmname`, `node` |
+| `proxmox_vm_tags` | VM tags as a comma separated list; always `1`, `vm_tags` is empty when the VM has no tags | Gauge | `vmid`, `vmname`, `node`, `vm_tags` |
+
+The tag list is read from the VM config endpoint (`/nodes/{node}/qemu/{vmid}/config`)
+and cached for a few minutes, so a scrape costs one extra API call per VM only
+when the cache is cold. `proxmox_vm_tags` is emitted for every VM regardless of
+its state, which lets alerts match on tags and then check whether the VM runs.
 
 ### Node Metrics
 
@@ -90,6 +96,20 @@ docker run -d \
 # Then run:
 docker-compose up -d
 ```
+
+### Building and publishing:
+Releases are versioned by the internal civersion service
+(`https://civersion.onlineteam.ru`) and pushed to the private Zot registry:
+
+```bash
+./build.sh          # ask civersion for the next version
+./build.sh minor    # request a specific release type
+./build.sh --tag 0.2  # build an explicit tag
+```
+
+`build.sh` pushes `zot.onlineteam.ru/proxmox-exporter:<tag>` and `:latest` for
+`linux/amd64`. It requires `docker buildx` (the cluster uses
+`DOCKER_HOST=tcp://docker-dind:2375`) and registry access.
 
 ### Configuration:
 This exporter uses environment variables for configuration:
