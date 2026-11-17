@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -187,6 +188,12 @@ func (collector *proxmoxCollector) refreshNodes() {
 			Online: fmt.Sprintf("%v", nodeMap["status"]) == "online",
 		})
 	}
+
+	// Proxmox does not guarantee a stable order, and the order decides whether
+	// the list looks changed.
+	sort.Slice(discoveredNodes, func(i, j int) bool {
+		return discoveredNodes[i].Name < discoveredNodes[j].Name
+	})
 
 	collector.nodesMutex.Lock()
 	changed := !sameNodes(collector.nodes, discoveredNodes)
