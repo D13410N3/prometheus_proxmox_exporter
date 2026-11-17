@@ -33,6 +33,7 @@ its state, which lets alerts match on tags and then check whether the VM runs.
 
 | Metric | Description | Type | Labels |
 |--------|-------------|------|--------|
+| `proxmox_node_status` | Node status (1=online, 0=offline or unreachable) | Gauge | `node` |
 | `proxmox_node_cpu_usage` | CPU usage percentage | Gauge | `node` |
 | `proxmox_node_memory_total_bytes` | Total memory in bytes | Gauge | `node` |
 | `proxmox_node_memory_free_bytes` | Free memory in bytes | Gauge | `node` |
@@ -62,8 +63,18 @@ its state, which lets alerts match on tags and then check whether the VM runs.
 
 | Metric | Description | Type | Labels |
 |--------|-------------|------|--------|
-| `proxmox_cluster_quorate` | Cluster quorum status (1=quorate, 0=not quorate) | Gauge | `node_id`, `node_name` |
-| `proxmox_cluster_nodes` | Number of nodes in the cluster | Gauge | `node_id`, `node_name` |
+| `proxmox_cluster_quorate` | Cluster quorum status (1=quorate, 0=not quorate) | Gauge | `cluster` |
+| `proxmox_cluster_nodes` | Number of nodes in the cluster | Gauge | `cluster` |
+
+### Offline nodes
+
+The exporter refreshes the node list every 30 seconds and remembers each node's
+online/offline status. Nodes that are powered off but still members of the
+cluster are never queried: Proxmox proxies every request for such a node to it
+and answers with an empty `595` only after a connect timeout (2-3 seconds per
+call), which used to push a scrape past the Prometheus scrape timeout. An
+offline node only gets `proxmox_node_status{node="..."} 0`; its other series
+stop being exported until it is back online.
 
 ### Installation:
 
